@@ -1,27 +1,17 @@
 import os
+import requests
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify, send_from_directory
-from openai import OpenAI
 
 # Load variables from .env
 load_dotenv()
 
 app = Flask(__name__, static_folder="static", static_url_path="")
 
-# NVIDIA API Configuration
-NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY")
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434").rstrip("/")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 
-if not NVIDIA_API_KEY:
-    raise RuntimeError(
-        "NVIDIA_API_KEY not found. Please add it to your .env file."
-    )
-
-client = OpenAI(
-    base_url="https://integrate.api.nvidia.com/v1",
-    api_key=NVIDIA_API_KEY,
-)
-
-MODEL = "meta/llama-3.1-8b-instruct"
+MODEL = OLLAMA_MODEL
 
 SYSTEM_PROMPT = """
 You are Linux AI Assistant.
@@ -60,23 +50,29 @@ def chat():
         return jsonify({"error": "Message cannot be empty"}), 400
 
     try:
-        response = client.chat.completions.create(
-            model=MODEL,
-            messages=[
-                {
-                    "role": "system",
-                    "content": SYSTEM_PROMPT,
-                },
-                {
-                    "role": "user",
-                    "content": user_message,
-                },
-            ],
-            temperature=0.2,
-            max_tokens=1024,
+        resp = requests.post(
+            f"{OLLAMA_URL}/api/chat",
+            json={
+                "model": MODEL,
+                "messages": [
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": user_message},
+                ],
+                "temperature": 0.2,
+                "max_tokens": 1024,
+            },
+            timeout=30,
         )
+        resp.raise_for_status()
+        data = resp.json()
 
-        reply = response.choices[0].message.content
+        if "choices" in data and data["choices"]:
+            reply = data["choices"][0].get("message", {}).get("content")
+        else:
+            reply = data.get("output") or data.get("result")
+
+        if not reply:
+            raise ValueError("No assistant reply was returned by Ollama.")
 
         return jsonify({"reply": reply})
 
