@@ -55,6 +55,7 @@ const chatForm = document.getElementById('chatForm');
 const chatInput = document.getElementById('chatInput');
 const chatSend = document.getElementById('chatSend');
 const chatStatus = document.getElementById('chatStatus');
+const newchatBtn = document.getElementById('newchatBtn');
 
 function addMessage(text, role) {
   const div = document.createElement('div');
@@ -113,6 +114,21 @@ async function sendToAssistant(userText) {
 
 function askAboutCommand(name) {
   sendToAssistant(`Explain the Linux command "${name}" in detail — what it does, its most useful options/flags, and 2-3 practical examples.`);
+}
+
+function newChat() {
+  chatMessages.innerHTML = '';
+  chatStatus.textContent = '';
+  addMessage('Hello! Click a command below, or type one in, to get a detailed explanation with syntax and examples.', 'assistant');
+  chatInput.value = '';
+  chatInput.focus();
+}
+
+if (newchatBtn) {
+  newchatBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    newChat();
+  });
 }
 
 chatForm.addEventListener('submit', (e) => {
